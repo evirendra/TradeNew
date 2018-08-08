@@ -41,13 +41,13 @@ public class LoginController {
 	private static final Logger logger = LoggerFactory.getLogger(LoginController.class);
 
 	@RequestMapping("/api/hello")
-	@CrossOrigin(origins = { "http://localhost:4200" })
+	@CrossOrigin(origins = { "http://localhost:4200","http://ec2-13-232-178-151.ap-south-1.compute.amazonaws.com:4200" })
 	public String hello() {
 		return "hello";
 	}
 
 	@RequestMapping("/api/login")
-	@CrossOrigin(origins = { "http://localhost:4200" })
+	@CrossOrigin(origins = { "http://localhost:4200","http://ec2-13-232-178-151.ap-south-1.compute.amazonaws.com:4200" })
 	public ResponseEntity<String> login(@RequestParam(value = "name", defaultValue = "World") String name) {
 
 		String loginURL = "https://kite.trade/connect/login?v= {v}&api_key={api_key}";
@@ -64,7 +64,7 @@ public class LoginController {
 	}
 
 	@RequestMapping("/api/home")
-	@CrossOrigin(origins = { "http://localhost:4200" })
+	@CrossOrigin(origins = { "http://localhost:4200","http://ec2-13-232-178-151.ap-south-1.compute.amazonaws.com:4200" })
 	public ResponseEntity<String> home(@RequestParam(value = "request_token") String requestToken) throws IOException {
 
 		String hashableText = KeyCache.getAPIKey() + requestToken + KeyCache.getAPISecretKey();
@@ -97,7 +97,7 @@ public class LoginController {
 	}
 
 	@RequestMapping("/api/bankNiftyData")
-	@CrossOrigin(origins = { "http://localhost:4200" })
+	@CrossOrigin(origins = { "http://localhost:4200","http://ec2-13-232-178-151.ap-south-1.compute.amazonaws.com:4200" })
 	public BankNiftyData bankNiftyData() throws InterruptedException {
 
 		BankNiftyData bankNiftyData = new BankNiftyData();
@@ -154,7 +154,7 @@ public class LoginController {
 	}
 
 	@RequestMapping("/api/refreshBankNiftyData")
-	@CrossOrigin(origins = { "http://localhost:4200" })
+	@CrossOrigin(origins = { "http://localhost:4200","http://ec2-13-232-178-151.ap-south-1.compute.amazonaws.com:4200" })
 	public BankNiftyData refreshBankNiftyData(@RequestParam(value = "bankNiftyLtpPrice") Double bankNiftyLtpPrice) {
 
 		BankNiftyData bankNiftyData = new BankNiftyData();
@@ -177,7 +177,7 @@ public class LoginController {
 	}
 
 	@RequestMapping("/api/exitNow")
-	@CrossOrigin(origins = { "http://localhost:4200" })
+	@CrossOrigin(origins = { "http://localhost:4200","http://ec2-13-232-178-151.ap-south-1.compute.amazonaws.com:4200" })
 	public boolean exitNow() {
 
 		ExitAction exitAction = ExitCache.getExitAction();
@@ -210,7 +210,7 @@ public class LoginController {
 	}
 
 	@RequestMapping("/api/updateExitCache")
-	@CrossOrigin(origins = { "http://localhost:4200" })
+	@CrossOrigin(origins = { "http://localhost:4200","http://ec2-13-232-178-151.ap-south-1.compute.amazonaws.com:4200" })
 	public boolean updateExitCache(@RequestParam(value = "bankNiftyUpperThreshHold") String bankNiftyUpperThreshHold,
 			@RequestParam(value = "bankNiftyLowerThreshHold") String bankNiftyLowerThreshHold,
 			@RequestParam(value = "callOptionSymbol") String callOptionSymbol,
@@ -327,7 +327,7 @@ public class LoginController {
 	}
 
 	@RequestMapping("/api/options/sell")
-	@CrossOrigin(origins = { "http://localhost:4200" })
+	@CrossOrigin(origins = { "http://localhost:4200","http://ec2-13-232-178-151.ap-south-1.compute.amazonaws.com:4200" })
 	public String Sell(@RequestParam(value = "callOptionSymbol") String callOptionSymbol,
 			@RequestParam(value = "callOptionQty") String callOptionQty,
 			@RequestParam(value = "putOptionSymbol") String putOptionSymbol,
