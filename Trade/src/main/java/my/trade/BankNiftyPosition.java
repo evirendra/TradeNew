@@ -1,5 +1,9 @@
 package my.trade;
 
+import org.springframework.util.StringUtils;
+
+import my.trade.qrtz.DataCache;
+
 public class BankNiftyPosition {
 	private String callOption;
 	private Double callOptionLtp;
@@ -47,4 +51,22 @@ public class BankNiftyPosition {
 		this.totalOptionLtp = totalOptionLtp;
 	}
 
+	public void populateBankNiftyPosition() {
+		if (ExitCache.getCache().isExitSystemEnabled()) {
+			String callOption = Integer.toString((int) ExitCache.getCache().getCallOption());
+			String putOption = Integer.toString((int) ExitCache.getCache().getPutOption());
+			if (!StringUtils.isEmpty(callOption) && !StringUtils.isEmpty(putOption)) {
+
+				double callOptionLtp = DataCache.get(BankNiftyOptionData.getInstrumentName(callOption, true))
+						.doubleValue();
+				double putOptionLtp = DataCache.get(BankNiftyOptionData.getInstrumentName(putOption, false))
+						.doubleValue();
+				this.setPutOption(putOption);
+				this.setCallOption(callOption);
+				this.setCallOptionLtp(callOptionLtp);
+				this.setPutOptionLtp(putOptionLtp);
+				this.setTotalOptionLtp(Double.sum(callOptionLtp, putOptionLtp));
+			}
+		}
+	}
 }

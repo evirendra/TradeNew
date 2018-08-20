@@ -2,7 +2,7 @@ package my.trade;
 
 public class BankNiftyOptionData {
 	private static final String exchange = "NFO";
-	private static final String expiry = "09AUG18";
+	private static final String expiry = "23AUG18";
 	private static final String symbol = "BANKNIFTY";
 	private long referenceValue;
 	private Number ltpPrice;
@@ -36,6 +36,17 @@ public class BankNiftyOptionData {
 	
 	public static String getInstrumentName(String referenceValueData, boolean isCallOptionData) {
 		String instrumentName = exchange + ":" + symbol + expiry + referenceValueData;
+		if (isCallOptionData) {
+			instrumentName = instrumentName + "CE";
+		} else {
+			instrumentName = instrumentName + "PE";
+		}
+		return instrumentName;
+	}
+	
+	public static String getInstrumentName(double referenceValueData, boolean isCallOptionData) {
+		String referenceValueDataStr = Integer.toString((int)referenceValueData);
+		String instrumentName = exchange + ":" + symbol + expiry + referenceValueDataStr;
 		if (isCallOptionData) {
 			instrumentName = instrumentName + "CE";
 		} else {

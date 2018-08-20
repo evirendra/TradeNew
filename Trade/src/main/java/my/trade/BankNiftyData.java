@@ -9,6 +9,7 @@ import my.trade.qrtz.DataCache;
 
 
 public class BankNiftyData {
+	public static final String INSTR_SYMBOL = "NSE:NIFTY BANK";
 	private static final String exchange = "NSE";
 	private static final String symbol = "NIFTY BANK";
 	private Number ltpPrice;
@@ -49,7 +50,7 @@ public class BankNiftyData {
 	public String getInstrumentName() {
 		return exchange + ":" + symbol;
 	}
-
+	
 	public List<String> populateCallOptionData() {
 		List<String> callOptionInstrumentNames = new ArrayList<>();
 		for (int i = 0; i < BankNiftyData.range; i++) {

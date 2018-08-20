@@ -124,5 +124,41 @@ public class QuartzApplication {
 				.withSchedule(scheduleBuilder).build();
 		return build;
 	}
+	
+	
+	@Bean(name = { "ExitJOB" })
+	public JobDetail exitJobDetail() {
+		return JobBuilder.newJob(ExitJob.class).withIdentity("exitJob").storeDurably().build();
+	}
+
+	@Bean(name = { "ExitTrigger" })
+	public Trigger exitJobTrigger() {
+		SimpleScheduleBuilder scheduleBuilder = SimpleScheduleBuilder.simpleSchedule().withIntervalInMilliseconds(1500)
+				.repeatForever();
+
+		GregorianCalendar startCalendar = getStartCalendar(9,16,0);
+		GregorianCalendar endCalendar = getEndCalendar(15,30,5);
+
+		SimpleTrigger build = null;
+		build = TriggerBuilder.newTrigger().forJob(exitJobDetail()).withIdentity("exitJobTrigger")
+				 .startAt(startCalendar.getTime())
+				 .endAt(endCalendar.getTime())
+				.withSchedule(scheduleBuilder).build();
+		return build;
+	}
+	
+	@Bean(name = { "ExitCleanUpJOB" })
+	public JobDetail exitJobCleanUp() {
+		return JobBuilder.newJob(ExitJobCleanUp.class).withIdentity("exitJobCleanUp").storeDurably().build();
+	}
+
+	@Bean(name = { "ExitTriggerCleanUp" })
+	public Trigger exitJobTriggerCleanUp() {
+		GregorianCalendar startCalendar = getStartCalendar(15,32,0);
+		
+		Trigger build = TriggerBuilder.newTrigger().forJob(exitJobCleanUp()).withIdentity("exitJobCleanUpTrigger")
+				 .startAt(startCalendar.getTime()). build();
+		return build;
+	}
 
 }

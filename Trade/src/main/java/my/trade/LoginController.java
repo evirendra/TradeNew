@@ -1,6 +1,9 @@
 package my.trade;
 
 import java.io.IOException;
+import java.sql.ResultSet;
+import java.sql.SQLException;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -15,6 +18,7 @@ import org.springframework.http.HttpMethod;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.jdbc.core.RowMapper;
 import org.springframework.util.LinkedMultiValueMap;
 import org.springframework.util.MultiValueMap;
 import org.springframework.web.bind.annotation.CrossOrigin;
@@ -26,28 +30,20 @@ import org.springframework.web.client.RestTemplate;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
+import my.trade.order.OrderService;
 import my.trade.qrtz.DataCache;
 
 @RestController
 public class LoginController {
-
-	// private static final String API_SECRET="5d541q3woc5fxjf4e3fszpatofiqv95f";
-
-	// private static final String API_KEY="hes00cdr4giilrsk";
 
 	@Autowired
 	JdbcTemplate jdbcTemplate;
 
 	private static final Logger logger = LoggerFactory.getLogger(LoginController.class);
 
-	@RequestMapping("/api/hello")
-	@CrossOrigin(origins = { "http://localhost:4200","http://ec2-13-232-178-151.ap-south-1.compute.amazonaws.com:4200" })
-	public String hello() {
-		return "hello";
-	}
-
 	@RequestMapping("/api/login")
-	@CrossOrigin(origins = { "http://localhost:4200","http://ec2-13-232-178-151.ap-south-1.compute.amazonaws.com:4200" })
+	@CrossOrigin(origins = { "http://localhost:4200",
+			"http://ec2-13-232-178-151.ap-south-1.compute.amazonaws.com:4200" })
 	public ResponseEntity<String> login(@RequestParam(value = "name", defaultValue = "World") String name) {
 
 		String loginURL = "https://kite.trade/connect/login?v= {v}&api_key={api_key}";
@@ -64,7 +60,8 @@ public class LoginController {
 	}
 
 	@RequestMapping("/api/home")
-	@CrossOrigin(origins = { "http://localhost:4200","http://ec2-13-232-178-151.ap-south-1.compute.amazonaws.com:4200" })
+	@CrossOrigin(origins = { "http://localhost:4200",
+			"http://ec2-13-232-178-151.ap-south-1.compute.amazonaws.com:4200" })
 	public ResponseEntity<String> home(@RequestParam(value = "request_token") String requestToken) throws IOException {
 
 		String hashableText = KeyCache.getAPIKey() + requestToken + KeyCache.getAPISecretKey();
@@ -97,100 +94,60 @@ public class LoginController {
 	}
 
 	@RequestMapping("/api/bankNiftyData")
-	@CrossOrigin(origins = { "http://localhost:4200","http://ec2-13-232-178-151.ap-south-1.compute.amazonaws.com:4200" })
+	@CrossOrigin(origins = { "http://localhost:4200",
+			"http://ec2-13-232-178-151.ap-south-1.compute.amazonaws.com:4200" })
 	public BankNiftyData bankNiftyData() throws InterruptedException {
 
 		BankNiftyData bankNiftyData = new BankNiftyData();
 
-		// ResponseEntity<String> response =
-		// fetchLTP(bankNiftyData.getInstrumentName());
-		// fillBankNiftyLtpPrice(bankNiftyData, response);
 		DataCache.subscribe(bankNiftyData.getInstrumentName());
 		bankNiftyData.setLtpPrice(DataCache.get(bankNiftyData.getInstrumentName()));
 
 		String populateOptionData = bankNiftyData.populateOptionData();
-		// String ltpURL = "https://api.kite.trade/quote/ltp?" + populateOptionData;
-		// ResponseEntity<String> optionResponse = fetchLTPFromURL(ltpURL);
 		Thread.sleep(2000);
-		// fillLastPriceOptionData(bankNiftyData, optionResponse);
 		fillLastPriceOptionData(bankNiftyData);
-		validateAndPerformSellORExit(bankNiftyData);
-		// logger.info("Access Token From Session: " +
-		// session.getAttribute(ACCESS_TOKEN));
+
+		BankNiftyPosition bnp = new BankNiftyPosition();
+		bnp.populateBankNiftyPosition();
+		bankNiftyData.setBankNiftyPosition(bnp);
 		return bankNiftyData;
 
 	}
 
-	private void validateAndPerformSellORExit(BankNiftyData bankNiftyData) {
-		ExitAction exitAction = ExitCache.getExitAction();
-		if (exitAction.isExitActionEnabled()) {
-			int action = ExitCache.determineAction(bankNiftyData);
-
-			if (action == 1) {
-				logger.info("Exit Condition triggerd at :" + bankNiftyData.getLtpPrice());
-
-				String callInstrumentSymbol = BankNiftyOptionData.getInstrumentName(exitAction.getCallOption(), true);
-				String putInstrumentSymbol = BankNiftyOptionData.getInstrumentName(exitAction.getPutOption(), false);
-				placeBuyOrder(callInstrumentSymbol, exitAction.getCallOptionQty());
-				placeBuyOrder(putInstrumentSymbol, exitAction.getPutOptionQty());
-				exitAction.setExitActionEnabled(false);
-				logger.info("Exited");
-			}
-			if (action == 2) {
-				logger.info("Sell Condition triggerd at :" + bankNiftyData.getLtpPrice());
-
-				String callInstrumentSymbol = BankNiftyOptionData.getInstrumentName(exitAction.getCallOption(), true);
-				String putInstrumentSymbol = BankNiftyOptionData.getInstrumentName(exitAction.getPutOption(), false);
-				if (!ExitCache.isTestMode()) {
-					placeSellOrder(callInstrumentSymbol, exitAction.getCallOptionQty());
-					placeSellOrder(putInstrumentSymbol, exitAction.getPutOptionQty());
-					exitAction.setSellIfTotalReachesFlag(false);
-					logger.info("Sold");
-				} else {
-					logger.info("Running in Test Mode, Sell order will not be Placed");
-				}
-			}
-		}
-	}
-
 	@RequestMapping("/api/refreshBankNiftyData")
-	@CrossOrigin(origins = { "http://localhost:4200","http://ec2-13-232-178-151.ap-south-1.compute.amazonaws.com:4200" })
+	@CrossOrigin(origins = { "http://localhost:4200",
+			"http://ec2-13-232-178-151.ap-south-1.compute.amazonaws.com:4200" })
 	public BankNiftyData refreshBankNiftyData(@RequestParam(value = "bankNiftyLtpPrice") Double bankNiftyLtpPrice) {
 
 		BankNiftyData bankNiftyData = new BankNiftyData();
-
 		bankNiftyData.setLtpPrice(bankNiftyLtpPrice);
-
 		String populateOptionData = bankNiftyData.populateOptionData();
-		// String ltpURL = "https://api.kite.trade/quote/ltp?" + populateOptionData +
-		// "&i=" + bankNiftyData.getInstrumentName();
-
-		// ResponseEntity<String> optionResponse = fetchLTPFromURL(ltpURL);
-		// fillBankNiftyLtpPrice(bankNiftyData, optionResponse);
 		bankNiftyData.setLtpPrice(DataCache.get(bankNiftyData.getInstrumentName()));
-		// fillLastPriceOptionData(bankNiftyData, optionResponse);
 		fillLastPriceOptionData(bankNiftyData);
-		validateAndPerformSellORExit(bankNiftyData);
-
+		BankNiftyPosition bnp = new BankNiftyPosition();
+		bnp.populateBankNiftyPosition();
+		bankNiftyData.setBankNiftyPosition(bnp);
 		return bankNiftyData;
 
 	}
 
 	@RequestMapping("/api/exitNow")
-	@CrossOrigin(origins = { "http://localhost:4200","http://ec2-13-232-178-151.ap-south-1.compute.amazonaws.com:4200" })
+	@CrossOrigin(origins = { "http://localhost:4200",
+			"http://ec2-13-232-178-151.ap-south-1.compute.amazonaws.com:4200" })
 	public boolean exitNow() {
 
-		ExitAction exitAction = ExitCache.getExitAction();
+		OrderService os = new OrderService();
+		ExitCache ec = ExitCache.getCache();
 
 		logger.info("Exit Immediately triggerd");
 
-		if (exitAction.isExitActionEnabled()) {
+		if (ec.isExitActionEnabled()) {
 
-			String callInstrumentSymbol = BankNiftyOptionData.getInstrumentName(exitAction.getCallOption(), true);
-			String putInstrumentSymbol = BankNiftyOptionData.getInstrumentName(exitAction.getPutOption(), false);
-			placeBuyOrder(callInstrumentSymbol, exitAction.getCallOptionQty());
-			placeBuyOrder(putInstrumentSymbol, exitAction.getPutOptionQty());
-			exitAction.setExitActionEnabled(false);
+			String callInstrumentSymbol = BankNiftyOptionData.getInstrumentName(ec.getCallOption(), true);
+			String putInstrumentSymbol = BankNiftyOptionData.getInstrumentName(ec.getPutOption(), false);
+			os.placeBuyOrder(callInstrumentSymbol, ec.getCallOptionQty());
+			os.placeBuyOrder(putInstrumentSymbol, ec.getPutOptionQty());
+			ec.setExitActionEnabled(false);
 			logger.info("Exited");
 		} else {
 			logger.info("Exit Action is Disabled");
@@ -210,7 +167,8 @@ public class LoginController {
 	}
 
 	@RequestMapping("/api/updateExitCache")
-	@CrossOrigin(origins = { "http://localhost:4200","http://ec2-13-232-178-151.ap-south-1.compute.amazonaws.com:4200" })
+	@CrossOrigin(origins = { "http://localhost:4200",
+			"http://ec2-13-232-178-151.ap-south-1.compute.amazonaws.com:4200" })
 	public boolean updateExitCache(@RequestParam(value = "bankNiftyUpperThreshHold") String bankNiftyUpperThreshHold,
 			@RequestParam(value = "bankNiftyLowerThreshHold") String bankNiftyLowerThreshHold,
 			@RequestParam(value = "callOptionSymbol") String callOptionSymbol,
@@ -221,43 +179,81 @@ public class LoginController {
 			@RequestParam(value = "optionTotalLower") String optionTotalLower,
 			@RequestParam(value = "exitAtCallOption") String exitAtCallOption,
 			@RequestParam(value = "exitAtPutOption") String exitAtPutOption,
-			@RequestParam(value = "exitActionEnabled") String exitActionEnabled,
-			@RequestParam(value = "testMode") String testMode,
-			@RequestParam(value = "sellIfTotalReachesFlag") String sellIfTotalReachesFlag,
+			@RequestParam(value = "exitActionEnabled") boolean exitActionEnabled,
+			@RequestParam(value = "testMode") boolean testMode,
+			@RequestParam(value = "sellIfTotalReachesFlag") boolean sellIfTotalReachesFlag,
 			@RequestParam(value = "sellIfTotalReachesAmount") String sellIfTotalReachesAmount) {
 
-		ExitCache.addExitData(ExitCache.BANK_NIFTY_UPPER_THRESHOLD, bankNiftyUpperThreshHold);
-		ExitCache.addExitData(ExitCache.BANK_NIFTY_LOWER_THRESHOLD, bankNiftyLowerThreshHold);
-		ExitCache.addExitData(ExitCache.OPTION_TOTAL_UPPER, optionTotalUpper);
-		ExitCache.addExitData(ExitCache.OPTION_TOTAL_LOWER, optionTotalLower);
-		ExitCache.addExitData(ExitCache.EXIT_AT_CALL_OPTION, exitAtCallOption);
-		ExitCache.addExitData(ExitCache.EXIT_AT_PUT_OPTION, exitAtPutOption);
-		ExitCache.addExitData(ExitCache.TEST_MODE, testMode);
-		ExitCache.getExitAction().populateExitAction(callOptionSymbol, callOptionQty, putOptionSymbol, putOptionQty,
-				Boolean.parseBoolean(exitActionEnabled), Boolean.parseBoolean(sellIfTotalReachesFlag),
-				sellIfTotalReachesAmount);
+		ExitCache.getCache().populateExitCache(bankNiftyUpperThreshHold, bankNiftyLowerThreshHold, optionTotalUpper,
+				optionTotalLower, exitAtCallOption, exitAtPutOption, testMode, callOptionSymbol, callOptionQty,
+				putOptionSymbol, putOptionQty, exitActionEnabled, sellIfTotalReachesFlag, sellIfTotalReachesAmount);
 
-		logger.info("Exit Action Defined :" + ExitCache.convertToString());
+		insertExitDataInDB();
+
+		logger.info("Exit Action Defined :" + ExitCache.getCache());
 
 		return true;
 	}
 
-	private void fillLastPriceOptionData(BankNiftyData bankNiftyData, ResponseEntity<String> optionResponse)
-			throws IOException {
-		ObjectMapper mapper = new ObjectMapper();
-		JsonNode jsonNode = mapper.readTree(optionResponse.getBody());
-		JsonNode dataObject = jsonNode.get("data");
-		List<BankNiftyOptionData> callOptionData = bankNiftyData.getCallOptionData();
-		for (BankNiftyOptionData bankNiftyOptionData : callOptionData) {
-			Number lastPrice = getLastPrice(bankNiftyOptionData, dataObject);
-			bankNiftyOptionData.setLtpPrice(lastPrice);
-		}
+	@RequestMapping("/api/retrieveExitCond")
+	@CrossOrigin(origins = { "http://localhost:4200",
+			"http://ec2-13-232-178-151.ap-south-1.compute.amazonaws.com:4200" })
+	public ExitCache retrieveExitCond() {
 
-		List<BankNiftyOptionData> putOptionData = bankNiftyData.getPutOptionData();
-		for (BankNiftyOptionData bankNiftyOptionData : putOptionData) {
-			Number lastPrice = getLastPrice(bankNiftyOptionData, dataObject);
-			bankNiftyOptionData.setLtpPrice(lastPrice);
+		String sql = "select * from exitcriteria where exit_sys_enabled = true";
+
+		List<ExitCache> exitCache = jdbcTemplate.query(sql, new RowMapper<ExitCache>() {
+
+			@Override
+			public ExitCache mapRow(ResultSet rs, int rowNum) throws SQLException {
+				ExitCache ec = new ExitCache();
+				ec.setBankNiftyUpperLimit(rs.getDouble("bn_upper_limit"));
+				ec.setBankNiftyLowerLimit(rs.getDouble("bn_lower_limit"));
+				ec.setOptionTotalUpperLimit(rs.getDouble("option_total_upper_limit"));
+				ec.setOptionTotalLowerLimit(rs.getDouble("option_total_lower_limit"));
+				ec.setCallOptionUpperLimit(rs.getDouble("call_option_upper_limit"));
+				ec.setPutOptionUpperLimit(rs.getDouble("put_option_upper_limit"));
+				ec.setSellIfTotalReachesFlag(rs.getBoolean("option_sell_Enabled"));
+				ec.setSellIfTotalReachesAmount(rs.getDouble("option_sell_total"));
+				ec.setTestMode(rs.getBoolean("testing_mode"));
+				ec.setCallOption(rs.getDouble("action_call_option_ref"));
+				ec.setCallOptionQty(rs.getInt("action_call_option_qty"));
+				ec.setPutOption(rs.getDouble("action_put_option_ref"));
+				ec.setPutOptionQty(rs.getInt("action_put_option_qty"));
+				ec.setExitActionEnabled(rs.getBoolean("action_exit_enabled"));
+				ec.setExitSystemEnabled(rs.getBoolean("exit_sys_enabled"));
+
+				return ec;
+			}
+		});
+		ExitCache ec = null;
+		if (exitCache.isEmpty() == false) {
+			ec = exitCache.get(0);
+			logger.info("Exit Action Retrieved :" + ec);
 		}
+		return ec;
+	}
+
+	private void insertExitDataInDB() {
+
+		jdbcTemplate.update("update exitcriteria set exit_sys_enabled = false  where exit_sys_enabled = true");
+
+		ExitCache ec = ExitCache.getCache();
+
+		String sql = "INSERT INTO exitcriteria(bn_upper_limit,bn_lower_limit,option_total_upper_limit,option_total_lower_limit,"
+				+ " call_option_upper_limit,put_option_upper_limit,option_sell_Enabled,option_sell_total,"
+				+ " testing_mode,action_call_option_ref,action_call_option_qty,action_put_option_ref,"
+				+ " action_put_option_qty,action_exit_enabled,exit_sys_enabled) "
+				+ " VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?);";
+
+		int update = jdbcTemplate.update(sql, ec.getBankNiftyUpperLimit(), ec.getBankNiftyLowerLimit(),
+				ec.getOptionTotalUpperLimit(), ec.getOptionTotalLowerLimit(), ec.getCallOptionUpperLimit(),
+				ec.getPutOptionUpperLimit(), ec.isSellIfTotalReachesFlag(), ec.getSellIfTotalReachesAmount(),
+				ec.isTestMode(), ec.getCallOption(), ec.getCallOptionQty(), ec.getPutOption(), ec.getPutOptionQty(),
+				ec.isExitActionEnabled(), true);
+
+		if (update > 0)
+			ec.setExitSystemEnabled(true);
 
 	}
 
@@ -280,43 +276,6 @@ public class LoginController {
 		return lastPrice;
 	}
 
-	private Number getLastPrice(BankNiftyOptionData bankNiftyOptionData, JsonNode dataNode) {
-		JsonNode instrumentDetails = (JsonNode) dataNode.get(bankNiftyOptionData.getInstrumentName());
-		Number lastPrice = (Number) instrumentDetails.get("last_price").doubleValue();
-		return lastPrice;
-	}
-
-	private ResponseEntity<String> fetchLTP(String instrument) {
-		String ltpURL = "https://api.kite.trade/quote/ltp?i={instr}";
-		HttpHeaders headers = new HttpHeaders();
-		headers.add("X-Kite-Version", "3");
-		headers.add("Authorization", KeyCache.getAuthorizationStr());
-		Map<String, String> params = new HashMap<>();
-		params.put("instr", instrument);
-		HttpMethod httpMethod = HttpMethod.GET;
-
-		RestTemplate restTemplate = new RestTemplate();
-		headers.setContentType(MediaType.APPLICATION_FORM_URLENCODED);
-		HttpEntity<String> entity = new HttpEntity<String>(headers);
-		ResponseEntity<String> response = restTemplate.exchange(ltpURL, httpMethod, entity, String.class, params);
-		return response;
-
-	}
-
-	private ResponseEntity<String> fetchLTPFromURL(String ltpURL) {
-		HttpHeaders headers = new HttpHeaders();
-		headers.add("X-Kite-Version", "3");
-		headers.add("Authorization", KeyCache.getAuthorizationStr());
-		HttpMethod httpMethod = HttpMethod.GET;
-
-		RestTemplate restTemplate = new RestTemplate();
-		headers.setContentType(MediaType.APPLICATION_FORM_URLENCODED);
-		HttpEntity<String> entity = new HttpEntity<String>(headers);
-		ResponseEntity<String> response = restTemplate.exchange(ltpURL, httpMethod, entity, String.class);
-		return response;
-
-	}
-
 	private ResponseEntity<String> fetchResponse(String url, HttpHeaders headers, Map<String, String> params,
 			HttpMethod httpMethod) {
 		RestTemplate restTemplate = new RestTemplate();
@@ -327,72 +286,18 @@ public class LoginController {
 	}
 
 	@RequestMapping("/api/options/sell")
-	@CrossOrigin(origins = { "http://localhost:4200","http://ec2-13-232-178-151.ap-south-1.compute.amazonaws.com:4200" })
+	@CrossOrigin(origins = { "http://localhost:4200",
+			"http://ec2-13-232-178-151.ap-south-1.compute.amazonaws.com:4200" })
 	public String Sell(@RequestParam(value = "callOptionSymbol") String callOptionSymbol,
-			@RequestParam(value = "callOptionQty") String callOptionQty,
+			@RequestParam(value = "callOptionQty") Integer callOptionQty,
 			@RequestParam(value = "putOptionSymbol") String putOptionSymbol,
-			@RequestParam(value = "putOptionQty") String putOptionQty) throws InterruptedException {
+			@RequestParam(value = "putOptionQty") Integer putOptionQty) throws InterruptedException {
 
-		String callOptionResponse = placeSellOrder(callOptionSymbol, callOptionQty);
-		String putOptionResponse = placeSellOrder(putOptionSymbol, putOptionQty);
-
-		// ExitCache.getExitAction().populateExitAction(callOptionSymbol, callOptionQty,
-		// putOptionSymbol, putOptionQty,
-		// true);
+		OrderService os = new OrderService();
+		String callOptionResponse = os.placeSellOrder(callOptionSymbol, callOptionQty);
+		String putOptionResponse = os.placeSellOrder(putOptionSymbol, putOptionQty);
 		return putOptionResponse;
 
-	}
-
-	private String placeSellOrder(String symbol, String qty) {
-		MultiValueMap<String, String> params = new LinkedMultiValueMap<String, String>();
-		String orderType = "SELL";
-		params.add("quantity", qty);
-		String[] split = symbol.split(":");
-		params.add("exchange", split[0]);
-		params.add("tradingsymbol", split[1]);
-		params.add("transaction_type", orderType);
-
-		return placeOrder(params);
-	}
-
-	private String placeBuyOrder(String symbol, String qty) {
-		if (!ExitCache.isTestMode()) {
-			MultiValueMap<String, String> params = new LinkedMultiValueMap<String, String>();
-			String orderType = "BUY";
-			params.add("quantity", qty);
-			String[] split = symbol.split(":");
-			params.add("exchange", split[0]);
-			params.add("tradingsymbol", split[1]);
-			params.add("transaction_type", orderType);
-
-			return placeOrder(params);
-		} else {
-			logger.info("Running in Test Mode, Buy order will not be Placed");
-		}
-		return "";
-	}
-
-	private String placeOrder(MultiValueMap<String, String> params) {
-		String tradeURL = "https://api.kite.trade/orders/regular";
-		HttpHeaders headers = new HttpHeaders();
-		headers.add("X-Kite-Version", "3");
-		headers.add("Authorization", KeyCache.getAuthorizationStr());
-
-		params.add("order_type", "MARKET");
-		params.add("product", "MIS");
-		params.add("validity", "DAY");
-
-		HttpEntity<MultiValueMap<String, String>> requestEntity = new HttpEntity<MultiValueMap<String, String>>(params,
-				headers);
-
-		String response = fetchResponse(tradeURL, requestEntity);
-		return response;
-	}
-
-	private String fetchResponse(String url, HttpEntity<MultiValueMap<String, String>> requestEntity) {
-		RestTemplate restTemplate = new RestTemplate();
-		String response = restTemplate.postForObject(url, requestEntity, String.class);
-		return response;
 	}
 
 }
