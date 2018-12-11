@@ -53,5 +53,9 @@ public class KeyCache {
 	public static boolean containAccessToken() {
 		return data.containsKey(ACCESS_TOKEN);
 	}
+	
+	public static boolean contains(String key) {
+		return data.containsKey(key);
+	}
 
 }

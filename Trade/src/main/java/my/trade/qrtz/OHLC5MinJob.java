@@ -33,7 +33,7 @@ public class OHLC5MinJob extends QuartzJobBean {
 
 	@Autowired
 	NamedParameterJdbcTemplate namedParameterJdbcTemplate;
-	
+
 	private static final Logger logger = LoggerFactory.getLogger(OHLC5MinJob.class);
 
 	@Override
@@ -61,11 +61,7 @@ public class OHLC5MinJob extends QuartzJobBean {
 			ichimokuData.checkForCrossOver(indicator);
 			if (indicator.isCheckForAlerts()) {
 				int checkAlerts = indicator.checkAlerts();
-				logger.info("indicator" + indicator);
-				if (checkAlerts == 1)
-					logger.info("Buy signal generated for above");
-				if (checkAlerts == -1)
-					logger.info("Sell signal generated for above");
+				processAlertsInDB(symbol, indicator, checkAlerts);
 			}
 		} else {
 			indicator = new IchimokuIndicator();
@@ -74,11 +70,46 @@ public class OHLC5MinJob extends QuartzJobBean {
 			ichimokuData.checkForCrossOver(indicator);
 			int checkAlerts = indicator.checkAlerts();
 
-			logger.info("indicator" + indicator);
-			if (checkAlerts == 1)
-				logger.info("Buy signal generated for above at init");
-			if (checkAlerts == -1)
-				logger.info("Sell signal generated for above at Init");
+			processAlertsInDB(symbol, indicator, checkAlerts);
+
+		}
+	}
+
+	private void processAlertsInDB(String symbol, IchimokuIndicator indicator, int checkAlerts) {
+		StringBuilder builder = null;
+		if (checkAlerts == 1) {
+			String transactionType = "Buy";
+			try {
+				builder = createInsertSQL(transactionType);
+			} catch (Exception e) {
+				// TODO Auto-generated catch block
+				e.printStackTrace();
+			}
+		}
+		if (checkAlerts == -1) {
+			String transactionType = "Sell";
+			try {
+				builder = createInsertSQL(transactionType);
+			} catch (Exception e) {
+				// TODO Auto-generated catch block
+				e.printStackTrace();
+			}
+		}
+
+		if (builder != null) {
+			String sql = builder.toString();
+			List<Object> tmpList = new ArrayList<>();
+			tmpList.add(symbol);
+			tmpList.add(100);
+			while (!DataCache.contains(symbol))
+				;
+			tmpList.add(DataCache.get(symbol));
+			tmpList.add(indicator.toString());
+			Object[] array = tmpList.toArray();
+			List<Object[]> inputList = new ArrayList<Object[]>();
+			inputList.add(array);
+
+			int[] batchUpdate = jdbcTemplate.batchUpdate(sql, inputList);
 		}
 	}
 
@@ -198,4 +229,25 @@ public class OHLC5MinJob extends QuartzJobBean {
 			int[] batchUpdate = jdbcTemplate.batchUpdate(sql, inputList);
 		}
 	}
+
+	private StringBuilder createInsertSQL(String transactionType) throws Exception {
+		StringBuilder builder = new StringBuilder("INSERT INTO ichimoku5MinTrades (createdtime, symbol, qty,");
+		int transactionCode = 0;
+		if (transactionType != null) {
+			if (transactionType.equalsIgnoreCase("Sell")) {
+				builder.append("soldPrice");
+				transactionCode = 2;
+			}
+			if (transactionType.equalsIgnoreCase("Buy")) {
+				builder.append("purchasedPrice");
+				transactionCode = 1;
+			}
+		} else {
+			throw new Exception("TransactionType is missing");
+		}
+
+		builder.append(" ,transactiontype, ichimokuStatus) values (NOW(), ?, ?, ?, " + transactionCode + ", ?)");
+		return builder;
+	}
+
 }

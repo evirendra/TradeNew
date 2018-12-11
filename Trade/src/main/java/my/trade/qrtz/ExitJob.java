@@ -24,7 +24,6 @@ public class ExitJob extends QuartzJobBean {
 	protected void executeInternal(JobExecutionContext arg0) throws JobExecutionException {
 
 		if (ExitCache.getCache().isExitSystemEnabled()) {
-			logger.info("running Exit job");
 			validateAndPerformSellORExit();
 		}
 	}

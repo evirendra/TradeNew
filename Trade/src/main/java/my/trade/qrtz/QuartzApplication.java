@@ -20,7 +20,7 @@ public class QuartzApplication {
 		SpringApplication.run(QuartzApplication.class, args);
 	}*/
 
-	@Bean(name = { "dataJob" })
+/*	@Bean(name = { "dataJob" })
 	public JobDetail dataJobDetail() {
 		return JobBuilder.newJob(DataJob.class).withIdentity("dataJob").storeDurably().build();
 	}
@@ -42,7 +42,32 @@ public class QuartzApplication {
 				 .endAt(endCalendar.getTime())
 				.withSchedule(scheduleBuilder).build();
 		return build;
+	}*/
+	
+	@Bean(name = { "positionJob" })
+	public JobDetail positionJobDetail() {
+		return JobBuilder.newJob(PositionJob.class).withIdentity("positionJob").storeDurably().build();
 	}
+
+	@Bean(name = { "positionTrigger" })
+	public Trigger positionJobTrigger() {
+		SimpleScheduleBuilder scheduleBuilder = SimpleScheduleBuilder.simpleSchedule().withIntervalInMilliseconds(1500)
+				.repeatForever();
+
+		// CronScheduleBuilder cronSchedule = CronScheduleBuilder.cronSchedule( "0/1 6
+		// 22 * * ?");
+
+		GregorianCalendar startCalendar = getStartCalendar(9,15,0);
+		GregorianCalendar endCalendar = getEndCalendar(15,30,0);
+
+		SimpleTrigger build = null;
+		build = TriggerBuilder.newTrigger().forJob(positionJobDetail()).withIdentity("positionTrigger")
+				 .startAt(startCalendar.getTime())
+				 .endAt(endCalendar.getTime())
+				.withSchedule(scheduleBuilder).build();
+		return build;
+	}
+	
 
 	private GregorianCalendar getEndCalendar(int hourOfDay, int minute, int second) {
 		GregorianCalendar endCalendar = new GregorianCalendar();
@@ -60,7 +85,7 @@ public class QuartzApplication {
 		return startCalendar;
 	}
 
-	@Bean(name = { "OHLC1MINJOB" })
+/*	@Bean(name = { "OHLC1MINJOB" })
 	public JobDetail ohlc1MinJobDetail() {
 		return JobBuilder.newJob(OHLC1MinJob.class).withIdentity("ohlc1MinJob").storeDurably().build();
 	}
@@ -159,6 +184,6 @@ public class QuartzApplication {
 		Trigger build = TriggerBuilder.newTrigger().forJob(exitJobCleanUp()).withIdentity("exitJobCleanUpTrigger")
 				 .startAt(startCalendar.getTime()). build();
 		return build;
-	}
+	}*/
 
 }

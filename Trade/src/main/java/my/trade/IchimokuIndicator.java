@@ -99,12 +99,10 @@ public class IchimokuIndicator {
 
 	public int checkAlerts() {
 		int alert = 0;
-		if (this.tenkan_kijun == 1 && this.ltp_cloud == 1 && this.spanA_spanB == 1 && this.chikou_cloud == 1
-				&& this.ohlcCLose_cloud == 1) {
+		if (this.chikou_cloud == 1) {
 			alert = 1;
 		}
-		if (this.tenkan_kijun == -1 && this.ltp_cloud == -1 && this.spanA_spanB == -1 && this.chikou_cloud == -1
-				&& this.ohlcCLose_cloud == -1) {
+		if (this.chikou_cloud == -1) {
 			alert = -1;
 		}
 		this.checkForAlerts = false;

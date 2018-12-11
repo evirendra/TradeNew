@@ -2,7 +2,7 @@ package my.trade;
 
 public class BankNiftyOptionData {
 	private static final String exchange = "NFO";
-	private static final String expiry = "23AUG18";
+	private static final String expiry = "06DEC18";
 	private static final String symbol = "BANKNIFTY";
 	private long referenceValue;
 	private Number ltpPrice;

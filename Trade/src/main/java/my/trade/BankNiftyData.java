@@ -13,7 +13,7 @@ public class BankNiftyData {
 	private static final String exchange = "NSE";
 	private static final String symbol = "NIFTY BANK";
 	private Number ltpPrice;
-	private static final int range = 5;
+	private static final int range = 8;
 	private List<BankNiftyOptionData> callOptionData = new ArrayList<>();
 	private List<BankNiftyOptionData> putOptionData = new ArrayList<>();
 	private BankNiftyPosition bankNiftyPosition;
@@ -54,7 +54,7 @@ public class BankNiftyData {
 	public List<String> populateCallOptionData() {
 		List<String> callOptionInstrumentNames = new ArrayList<>();
 		for (int i = 0; i < BankNiftyData.range; i++) {
-			long newReferenceValue = getReferenceValue() + ((i + 1) * 100);
+			long newReferenceValue = getReferenceValue() + ((i - 2) * 100);
 			BankNiftyOptionData bankNiftyOptionData = new BankNiftyOptionData();
 			bankNiftyOptionData.setReferenceValue(newReferenceValue);
 			bankNiftyOptionData.setCallOption(true);
@@ -67,7 +67,7 @@ public class BankNiftyData {
 	public List<String> populatePutOptionData() {
 		List<String> putOptionInstrumentNames = new ArrayList<>();
 		for (int i = 0; i < BankNiftyData.range; i++) {
-			long newReferenceValue = getReferenceValue() - ((i + 1) * 100);
+			long newReferenceValue = getReferenceValue() - ((i - 2) * 100);
 			BankNiftyOptionData bankNiftyOptionData = new BankNiftyOptionData();
 			bankNiftyOptionData.setReferenceValue(newReferenceValue);
 			bankNiftyOptionData.setCallOption(false);

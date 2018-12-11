@@ -25,7 +25,7 @@ public class VirtualTradeController {
 	JdbcTemplate jdbcTemplate;
 
 	@RequestMapping("/api/virtualTrade/add")
-	@CrossOrigin(origins = { "http://localhost:4200" })
+	@CrossOrigin(origins = { "http://localhost:4200" ,"http://13.233.7.107:4200" })
 	public List<VirtualTrade> addVirtualTrade(@RequestParam(value = "symbol") String symbol, @RequestParam(value = "qty") int qty,
 			@RequestParam(value = "transactionType") String transactionType) throws Exception {
 
