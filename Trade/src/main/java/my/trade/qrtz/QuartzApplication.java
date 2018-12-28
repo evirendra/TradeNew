@@ -51,7 +51,7 @@ public class QuartzApplication {
 
 	@Bean(name = { "positionTrigger" })
 	public Trigger positionJobTrigger() {
-		SimpleScheduleBuilder scheduleBuilder = SimpleScheduleBuilder.simpleSchedule().withIntervalInMilliseconds(1500)
+		SimpleScheduleBuilder scheduleBuilder = SimpleScheduleBuilder.simpleSchedule().withIntervalInMilliseconds(3000)
 				.repeatForever();
 
 		// CronScheduleBuilder cronSchedule = CronScheduleBuilder.cronSchedule( "0/1 6

@@ -2,7 +2,7 @@ package my.trade;
 
 import java.util.HashMap;
 
-public class PositionCache {
+public class BuyPositionCache {
 
 	public static final HashMap<String, String> data = new HashMap<>();
 

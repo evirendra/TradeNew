@@ -10,6 +10,7 @@ public class Position {
 	private Integer quantity;
 	private Double averagePrice;
 	private Integer daySellQuantity;
+	private Integer dayBuyQuantity;
 
 	public String getTradingSymbol() {
 		return tradingSymbol;
@@ -50,14 +51,23 @@ public class Position {
 	public void setDaySellQuantity(Integer daySellQuantity) {
 		this.daySellQuantity = daySellQuantity;
 	}
+	
+	public Integer getDayBuyQuantity() {
+		return dayBuyQuantity;
+	}
+
+	public void setDayBuyQuantity(Integer dayBuyQuantity) {
+		this.dayBuyQuantity = dayBuyQuantity;
+	}
 
 	public void populate(String tradingSymbol, String exchange, Integer quantity, Double averagePrice,
-			Integer daySellQuantity, Position position) {
+			Integer daySellQuantity, Integer dayBuyQuantity, Position position) {
 		this.setTradingSymbol(tradingSymbol);
 		this.setExchange(exchange);
 		this.setQuantity(quantity);
 		this.setAveragePrice(averagePrice);
 		this.setDaySellQuantity(daySellQuantity);
+		this.setDayBuyQuantity(dayBuyQuantity);
 	}
 
 	@Override

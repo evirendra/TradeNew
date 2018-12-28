@@ -74,6 +74,32 @@ public class OrderService {
 		return placeOrderType(params);
 	}
 	
+	public String placeSellLimitOrder(String tradingSymbol, String exchange, Integer qty, Double price, String orderType) {
+		String transactionType = "SELL";
+		MultiValueMap<String, String> params = new LinkedMultiValueMap<String, String>();
+		params.add("quantity", Integer.toString(qty));
+		params.add("exchange", exchange);
+		params.add("tradingsymbol", tradingSymbol);
+		params.add("transaction_type", transactionType);
+		params.add("price", price.toString());
+		params.add("order_type", orderType);
+
+		return placeOrderType(params);
+	}
+	
+	public String placeSellSLMOrder(String tradingSymbol, String exchange, Integer qty, Double price, String orderType) {
+		String transactionType = "SELL";
+		MultiValueMap<String, String> params = new LinkedMultiValueMap<String, String>();
+		params.add("quantity", Integer.toString(qty));
+		params.add("exchange", exchange);
+		params.add("tradingsymbol", tradingSymbol);
+		params.add("transaction_type", transactionType);
+		params.add("trigger_price", price.toString());
+		params.add("order_type", orderType);
+
+		return placeOrderType(params);
+	}
+	
 	public String placeOrderType(MultiValueMap<String, String> params) {
 		String tradeURL = "https://api.kite.trade/orders/regular";
 		HttpHeaders headers = new HttpHeaders();
@@ -114,5 +140,7 @@ public class OrderService {
 		String response = restTemplate.postForObject(url, requestEntity, String.class);
 		return response;
 	}
+
+
 
 }

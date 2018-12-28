@@ -20,9 +20,10 @@ import org.springframework.web.client.RestTemplate;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
+import my.trade.BuyPositionCache;
 import my.trade.KeyCache;
 import my.trade.Position;
-import my.trade.PositionCache;
+import my.trade.SellPositionCache;
 import my.trade.order.OrderService;
 
 public class PositionJob extends QuartzJobBean {
@@ -61,7 +62,7 @@ public class PositionJob extends QuartzJobBean {
 		// System.out.println("jsonNode :" + jsonNode);
 		JsonNode dataObject = jsonNode.get("data");
 		// System.out.println("data :" + dataObject );
-		
+
 		JsonNode netObject = dataObject.get("net");
 		// System.out.println("netObject :" + netObject );
 		Iterator<JsonNode> jsonNodeElements = netObject.elements();
@@ -73,33 +74,46 @@ public class PositionJob extends QuartzJobBean {
 			Integer quantity = netObjectElement.get("quantity").asInt();
 			Double averagePrice = netObjectElement.get("average_price").asDouble();
 			Integer daySellQuantity = netObjectElement.get("day_sell_quantity").asInt();
+			Integer dayBuyQuantity = netObjectElement.get("day_buy_quantity").asInt();
 
 			if (quantity < 0) {
 				logger.info(dataObject.toString());
-				if (PositionCache.contains(tradingSymbol)) {
-					Integer orderPlacedForDaySellqty = Integer.valueOf(PositionCache.getKey(tradingSymbol));
+				if (SellPositionCache.contains(tradingSymbol)) {
+					Integer orderPlacedForDaySellqty = Integer.valueOf(SellPositionCache.getKey(tradingSymbol));
 
 					if (daySellQuantity > orderPlacedForDaySellqty) {
-						actAsPerPosition(tradingSymbol, exchange, quantity, averagePrice, daySellQuantity);
+						actAsPerSellPosition(tradingSymbol, exchange, quantity, averagePrice, daySellQuantity,
+								dayBuyQuantity);
 					}
 				} else {
-					actAsPerPosition(tradingSymbol, exchange, quantity, averagePrice, daySellQuantity);
+					actAsPerSellPosition(tradingSymbol, exchange, quantity, averagePrice, daySellQuantity,
+							dayBuyQuantity);
+				}
+			} else if (quantity > 0) {
+				logger.info(dataObject.toString());
+				if (BuyPositionCache.contains(tradingSymbol)) {
+					Integer orderPlacedForDayBuyqty = Integer.valueOf(BuyPositionCache.getKey(tradingSymbol));
+					if (dayBuyQuantity > orderPlacedForDayBuyqty) {
+						actAsPerBuyPosition(tradingSymbol, exchange, quantity, averagePrice, daySellQuantity,
+								dayBuyQuantity);
+					}
+				} else {
+					actAsPerBuyPosition(tradingSymbol, exchange, quantity, averagePrice, daySellQuantity,
+							dayBuyQuantity);
 				}
 			}
 		}
-
-		// for (String instrumentSymbol : DataCache.getSubscriptions()) {
-		// Number lastPrice = getLastPrice(dataObject, instrumentSymbol);
-		// DataCache.add(instrumentSymbol, lastPrice);
-		// }
-
 	}
 
-	private void actAsPerPosition(String tradingSymbol, String exchange, Integer quantity, Double averagePrice,
-			Integer daySellQuantity) {
+	// for (String instrumentSymbol : DataCache.getSubscriptions()) {
+	// Number lastPrice = getLastPrice(dataObject, instrumentSymbol);
+	// DataCache.add(instrumentSymbol, lastPrice);
+	// }
 
+	private void actAsPerBuyPosition(String tradingSymbol, String exchange, Integer quantity, Double averagePrice,
+			Integer daySellQuantity, Integer dayBuyQuantity) {
 		Position position = new Position();
-		position.populate(tradingSymbol, exchange, quantity, averagePrice, daySellQuantity, position);
+		position.populate(tradingSymbol, exchange, quantity, averagePrice, daySellQuantity,dayBuyQuantity, position);
 		try {
 			fetchOrders(position);
 		} catch (IOException e) {
@@ -107,7 +121,40 @@ public class PositionJob extends QuartzJobBean {
 			e.printStackTrace();
 		}
 
-//		logger.info(position.toString());
+		// logger.info(position.toString());
+
+		// Place SL Order
+
+		OrderService orderService = new OrderService();
+		int pq = position.getQuantity() ;
+		String slot = "SL-M";
+		Double sp = position.getRoundedAveragePrice() - 8;
+		orderService.placeSellSLMOrder(position.getTradingSymbol(), position.getExchange(), pq, sp, slot);
+
+		// Place target Order
+
+		Double tp = position.getRoundedAveragePrice() + 2.5;
+		String tot = "LIMIT";
+		orderService.placeSellLimitOrder(position.getTradingSymbol(), position.getExchange(), pq, tp, tot);
+		BuyPositionCache.addKey(tradingSymbol, position.getDayBuyQuantity().toString());
+		logger.info(BuyPositionCache.convertToString());
+
+	}
+
+	private void actAsPerSellPosition(String tradingSymbol, String exchange, Integer quantity, Double averagePrice,
+			Integer daySellQuantity, Integer dayBuyQuantity) {
+
+		Position position = new Position();
+
+		position.populate(tradingSymbol, exchange, quantity, averagePrice, daySellQuantity, dayBuyQuantity, position);
+		try {
+			fetchOrders(position);
+		} catch (IOException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
+
+		// logger.info(position.toString());
 
 		// Place SL Order
 
@@ -122,8 +169,8 @@ public class PositionJob extends QuartzJobBean {
 		Double tp = position.getRoundedAveragePrice() - 3;
 		String tot = "LIMIT";
 		orderService.placeBuyLimitOrder(position.getTradingSymbol(), position.getExchange(), pq, tp, tot);
-		PositionCache.addKey(tradingSymbol, position.getDaySellQuantity().toString());
-		logger.info(PositionCache.convertToString());
+		SellPositionCache.addKey(tradingSymbol, position.getDaySellQuantity().toString());
+		logger.info(SellPositionCache.convertToString());
 	}
 
 	private Number getLastPrice(JsonNode dataObject, String instrumentName) {
@@ -132,7 +179,7 @@ public class PositionJob extends QuartzJobBean {
 		return lastPrice;
 	}
 
-	private void fetchOrders(Position position) throws IOException {
+	private void fetchOrders(Position position ) throws IOException {
 		System.out.println("Fetching Orders");
 		String ltpURL = "https://api.kite.trade/orders";
 		HttpHeaders headers = new HttpHeaders();
@@ -149,26 +196,28 @@ public class PositionJob extends QuartzJobBean {
 		JsonNode jsonNode = mapper.readTree(response.getBody());
 		// System.out.println("jsonNode :" + jsonNode);
 		JsonNode dataObject = jsonNode.get("data");
-//		logger.info("data :" + dataObject);
+		// logger.info("data :" + dataObject);
 		Iterator<JsonNode> jsonNodeElements = dataObject.elements();
 
 		List<JsonNode> completedOrders = new ArrayList<>();
 		while (jsonNodeElements.hasNext()) {
 			JsonNode element = jsonNodeElements.next();
 			String status = element.get("status").asText();
-			if("COMPLETE".equalsIgnoreCase(status)) {
+			if ("COMPLETE".equalsIgnoreCase(status)) {
 				completedOrders.add(element);
 			}
 		}
-		
-		
-		for(int i =completedOrders.size()-1;  i>=0; i--) {
+
+		for (int i = completedOrders.size() - 1; i >= 0; i--) {
 			JsonNode completedOrder = completedOrders.get(i);
-			int quantity = completedOrder.get("quantity").asInt() *-1;
+			int quantity = completedOrder.get("quantity").asInt();
+			if(position.getQuantity() < 0 ) {
+				quantity = quantity * -1;
+			}
 			String tradingSymbol = completedOrder.get("tradingsymbol").asText();
 			String exchange = completedOrder.get("exchange").asText();
 			Double averagePrice = completedOrder.get("average_price").asDouble();
-			if(quantity == position.getQuantity() &&  tradingSymbol.equalsIgnoreCase(position.getTradingSymbol())
+			if (quantity == position.getQuantity() && tradingSymbol.equalsIgnoreCase(position.getTradingSymbol())
 					&& exchange.equals(position.getExchange())) {
 				position.setAveragePrice(averagePrice);
 				break;
